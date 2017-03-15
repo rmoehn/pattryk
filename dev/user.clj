@@ -1,3 +1,71 @@
+(ns user
+  (:require [clojure.java.io :as io]
+            [clojure.pprint :refer [pprint]]
+            [clojure.repl :refer [pst doc find-doc]]
+            [clojure.string :as string]
+            [clojure.tools.namespace.repl :refer [refresh]]
+            [com.rpl.specter :as s]
+            [net.cgrand.enlive-html :as enlive]
+            [twitter.oauth]
+            [twitter.api.restful :as twitter]))
+
+(def most-followers-url-s "http://friendorfollow.com/twitter/most-followers/")
+
+(def twitter-creds (twitter.oauth/make-oauth-creds
+                      (System/getenv "CLOVEZ_TWITTER_CONSUMER_KEY")
+                      (System/getenv "CLOVEZ_TWITTER_CONSUMER_SECRET")
+                      (System/getenv "CLOVEZ_TWITTER_ACCESS_TOKEN")
+                      (System/getenv "CLOVEZ_TWITTER_ACCESS_TOKEN_SECRET")))
+
+(defn fetch-page [url-s]
+  (enlive/html-resource (io/as-url url-s)))
+
+(defn get-screen-names [resource]
+  (->> (enlive/select resource [:a.tUser])
+       (map enlive/text)
+       (map #(string/replace-first % "@" ""))))
+
+(defn get-recent-tweets [twitter-creds screen-name]
+  (->> (twitter/statuses-user-timeline :oauth-creds twitter-creds
+                                       :params {:screen-name screen-name
+                                                :count 20
+                                                :include_rts false
+                                                :trim_user true})
+       :body
+       (map :text)))
+
+(defn get-random-tweet [twitter-creds screen-name]
+  (rand-nth (get-recent-tweets twitter-creds screen-name)))
+
+(defn get-random-tweets [twitter-creds screen-names]
+  (->> screen-names
+       (random-sample 0.05)
+       shuffle
+       (map #(get-random-tweet twitter-creds %))))
+
+(defn make-silly-text [tweets]
+  (->> tweets
+       (map #(string/split % #" "))
+       (map-indexed #(get %2 %1 (last %2)))
+       (string/join " ")))
+
+(defn tweet-silly-text [twitter-creds screen-names]
+  (twitter/statuses-update
+    :oauth-creds twitter-creds
+    :params {:status (make-silly-text
+                       (get-random-tweets twitter-creds screen-names))}))
+
+(comment
+
+  (def mf-res (fetch-page most-followers-url-s))
+
+  (def screen-names (get-screen-names mf-res))
+
+  (tweet-silly-text twitter-creds screen-names)
+
+
+  )
+
 ; Requirements:
 ; - Read N tweets.
 ;   - N = Random number between 1 and 20.
@@ -5,11 +73,15 @@
 ;     https://en.wikipedia.org/wiki/List_of_most_followed_users_on_Twitter Or
 ;     here: http://friendorfollow.com/twitter/most-followers/
 ;     - Select N randomly. Randomly select one of their last 10 tweets.
+;       - Twitter returns retweets by default, and if you exclude them, they're
+;         still counted. Therefore, set this count to 20.
 ; - Post first word from first, second one from second, third one from third
 ;   etc. If there are not enough words, use the last.
 ;   - Punctuation following a word shall be included.
 ; - Should be possible to execute it in a loop.
 ; - Barebones error handling: everything throws an exception.
+; Non-functional:
+; - Make it as primitive as possible.
 
 ; Design:
 ; - Read list of most followed statically.
