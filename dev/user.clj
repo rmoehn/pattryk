@@ -4,7 +4,6 @@
             [clojure.repl :refer [pst doc find-doc]]
             [clojure.string :as string]
             [clojure.tools.namespace.repl :refer [refresh]]
-            [com.rpl.specter :as s]
             [net.cgrand.enlive-html :as enlive]
             [twitter.oauth]
             [twitter.api.restful :as twitter]))
