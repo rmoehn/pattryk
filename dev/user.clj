@@ -8,13 +8,15 @@
             [twitter.oauth]
             [twitter.api.restful :as twitter]))
 
-(def most-followers-url-s "http://friendorfollow.com/twitter/most-followers/")
+(def most-followers-url-s
+  "http://friendorfollow.com/twitter/most-followers/")
 
-(def twitter-creds (twitter.oauth/make-oauth-creds
-                      (System/getenv "CLOVEZ_TWITTER_CONSUMER_KEY")
-                      (System/getenv "CLOVEZ_TWITTER_CONSUMER_SECRET")
-                      (System/getenv "CLOVEZ_TWITTER_ACCESS_TOKEN")
-                      (System/getenv "CLOVEZ_TWITTER_ACCESS_TOKEN_SECRET")))
+(def twitter-creds
+  (twitter.oauth/make-oauth-creds
+    (System/getenv "CLOVEZ_TWITTER_CONSUMER_KEY")
+    (System/getenv "CLOVEZ_TWITTER_CONSUMER_SECRET")
+    (System/getenv "CLOVEZ_TWITTER_ACCESS_TOKEN")
+    (System/getenv "CLOVEZ_TWITTER_ACCESS_TOKEN_SECRET")))
 
 (defn fetch-page [url-s]
   (enlive/html-resource (io/as-url url-s)))
@@ -25,11 +27,12 @@
        (map #(string/replace-first % "@" ""))))
 
 (defn get-recent-tweets [twitter-creds screen-name]
-  (->> (twitter/statuses-user-timeline :oauth-creds twitter-creds
-                                       :params {:screen-name screen-name
-                                                :count 20
-                                                :include_rts false
-                                                :trim_user true})
+  (->> (twitter/statuses-user-timeline
+         :oauth-creds twitter-creds
+         :params {:screen-name screen-name
+                  :count 20
+                  :include_rts false
+                  :trim_user true})
        :body
        (map :text)))
 
@@ -45,14 +48,15 @@
 (defn make-silly-text [tweets]
   (->> tweets
        (map #(string/split % #" "))
-       (map-indexed #(get %2 %1 (last %2)))
+       (map-indexed #(get %2 %1 (count %2)))
        (string/join " ")))
 
 (defn tweet-silly-text [twitter-creds screen-names]
-  (twitter/statuses-update
-    :oauth-creds twitter-creds
-    :params {:status (make-silly-text
-                       (get-random-tweets twitter-creds screen-names))}))
+  (let [silly-text (make-silly-text
+                     (get-random-tweets twitter-creds
+                                        screen-names))]
+    (twitter/statuses-update :oauth-creds twitter-creds
+                             :params {:status silly-text})))
 
 (comment
 
@@ -60,7 +64,11 @@
 
   (def screen-names (get-screen-names mf-res))
 
-  (tweet-silly-text twitter-creds screen-names)
+  (loop []
+    (println "Assembling next silly tweet…")
+    (tweet-silly-text twitter-creds screen-names)
+    (Thread/sleep 10000)
+    (recur))
 
 
   )
@@ -104,3 +112,9 @@
 ;   - A Twitter creds object.
 ;   - Def it globally? Or pass it in? Pass it in. Because that's what I would do
 ;     if I was writing a component.
+;(defn make-silly-text [tweets]
+;  (->> tweets
+;       (map #(string/split % #" "))
+;       (map-indexed #(get %2 %1 (last %2)))
+;       (string/join " "))
+
